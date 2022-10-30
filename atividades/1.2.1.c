@@ -47,8 +47,6 @@ int main (int argc, char* args[])
     SDL_RenderDrawRect(ren, &r4);
     SDL_RenderFillRect(ren, &r4);
 
-
-	//SDL_RenderDrawPoint(ren, 40+i, 20);
 	SDL_RenderPresent(ren);
     SDL_Delay(5000);
 
