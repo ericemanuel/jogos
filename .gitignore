@@ -1,5 +1,4 @@
 atividades/*/*
 !*/*/*.c
 !*/*/*.png
-!*/*/*.jpg
-!*/*/*.jpeg
+!*/*/*.gif
