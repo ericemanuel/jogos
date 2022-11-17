@@ -6,34 +6,28 @@
 #define width 720
 #define height 480
 #define size 150
-#define cycle 1000
+#define cycle 100
 
 int wait, before, newCycle = 1;
 
-int AUX_WaitEventTimeoutCount(SDL_Event event, int ms) {
+int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32 ms) {
     if (newCycle) {
         wait = cycle;
         before = ms;
         newCycle = 0;
-        SDL_Log("New cycle!");
     } else {
         wait -= SDL_GetTicks() - before;
         if (wait <= 0) {
             wait = 0;
-            newCycle = 1;
         }
-        SDL_Log("wait = %d - %d", SDL_GetTicks(), before);
     }
-
-    return SDL_WaitEventTimeout(&event, wait);
+    return SDL_WaitEventTimeout(event, wait);
 }
 
 int main(int argc, char* args[]) {
     // inicialização
     SDL_Init(SDL_INIT_EVERYTHING);
-    SDL_Window* window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED,
-                                          SDL_WINDOWPOS_UNDEFINED, width,
-                                          height, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
@@ -67,15 +61,14 @@ int main(int argc, char* args[]) {
 
         SDL_RenderPresent(render);
 
-        isEvent = AUX_WaitEventTimeoutCount(event, SDL_GetTicks());
+        isEvent = AUX_WaitEventTimeoutCount(&event, SDL_GetTicks());
         if (isEvent) {
             switch (event.type) {
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
                         case SDLK_UP:
-                            if (r2.y > 0) {
+                            if (r2.y > 0)
                                 r2.y -= size / 5;
-                            }
                             break;
                         case SDLK_DOWN:
                             if (r2.y < (height - size))
@@ -97,8 +90,6 @@ int main(int argc, char* args[]) {
                     return (0);
             }
 
-            AUX_WaitEventTimeoutCount(event, SDL_GetTicks());
-
         } else {
             if (r1.x >= (width - size))
                 invertX = -1;
@@ -112,6 +103,8 @@ int main(int argc, char* args[]) {
 
             r1.x += size / 20 * invertX;
             r1.y += size / 20 * invertY;
+
+            newCycle = 1;
         }
     }
 }

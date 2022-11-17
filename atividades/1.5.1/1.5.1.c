@@ -6,7 +6,7 @@
 #define width 720
 #define height 480
 #define size 150
-#define cycle 10
+#define cycle 100
 
 int main(int argc, char* args[]) {
     // inicialização
