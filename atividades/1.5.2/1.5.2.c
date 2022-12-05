@@ -6,21 +6,22 @@
 #define width 720
 #define height 480
 #define size 150
-#define cycle 100
+#define cycle 10
 
-int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* ms) {
+int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* wait) {
     Uint32 before = SDL_GetTicks();
-    int isEvent = SDL_WaitEventTimeout(event, *ms);
+    int isEvent = SDL_WaitEventTimeout(event, *wait);
     if (isEvent) {
-        Uint32 now = SDL_GetTicks();
-        *ms -= (now - before);
-        if (*ms > cycle)
-            *ms = 0;
-        else
-            *ms = cycle;
-    }
+        *wait -= (SDL_GetTicks() - before);
+
+        if (*wait >= cycle)
+            *wait = cycle;
+    } else
+        *wait = cycle;
+
     return isEvent;
 }
+
 int main(int argc, char* args[]) {
     // inicialização
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -30,7 +31,8 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
-    int mx, my, isEvent, invertX, invertY;
+    int wait, isEvent, invertX, invertY;
+    wait = cycle;
     isEvent = 0;
     invertX = invertY = 1;
 
@@ -40,6 +42,7 @@ int main(int argc, char* args[]) {
 
     SDL_Rect r1 = {width / 4 - size / 2, height / 2 - size / 2, size, size};
     SDL_Rect r2 = {width / 2 - size / 2, height / 2 - size / 2, size, size};
+    SDL_Rect r3 = {0, 0, size, size};
 
     SDL_Event event;
     while (1) {
@@ -53,16 +56,17 @@ int main(int argc, char* args[]) {
         SDL_SetRenderDrawColor(render, c2.r, c2.g, c2.b, c2.a);
         SDL_RenderFillRect(render, &r2);
 
-        SDL_GetMouseState(&mx, &my);
-        SDL_Rect r3 = {mx, my, size, size};
         SDL_SetRenderDrawColor(render, c3.r, c3.g, c3.b, c3.a);
         SDL_RenderFillRect(render, &r3);
 
         SDL_RenderPresent(render);
 
-        int wait = cycle;
         if (AUX_WaitEventTimeoutCount(&event, &wait)) {
             switch (event.type) {
+                case SDL_MOUSEMOTION:
+                    SDL_GetMouseState(&r3.x, &r3.y);
+                    break;
+
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
                         case SDLK_UP:

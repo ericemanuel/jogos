@@ -9,6 +9,20 @@
 #define size 150
 #define cycle 100
 
+int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* wait) {
+    Uint32 before = SDL_GetTicks();
+    int isEvent = SDL_WaitEventTimeout(event, *wait);
+    if (isEvent) {
+        *wait -= (SDL_GetTicks() - before);
+
+        if (*wait >= cycle)
+            *wait = cycle;
+    } else
+        *wait = cycle;
+
+    return isEvent;
+}
+
 int main(int argc, char* args[]) {
     // inicialização
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -18,8 +32,8 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
-    int mx, isEvent, wait, before, red, green, blue;
-    mx = isEvent = red = green = blue = 0;
+    int mx, wait, red, green, blue;
+    mx = red = green = blue = 0;
     wait = cycle;
     char winner[10];
 
@@ -31,6 +45,7 @@ int main(int argc, char* args[]) {
     SDL_Rect r0 = {width - size / 5, 0, size / 5, height};
     SDL_Rect r1 = {0, height / 2 - size, size, size};
     SDL_Rect r2 = {0, height / 2 - size / 2, size, size};
+    SDL_Rect r3 = {mx, height / 2, size, size};
 
     SDL_Event event;
     while (1) {
@@ -48,24 +63,23 @@ int main(int argc, char* args[]) {
             SDL_SetRenderDrawColor(render, c2.r, c2.g, c2.b, c2.a);
             SDL_RenderFillRect(render, &r2);
 
-            SDL_Rect r3 = {mx, height / 2, size, size};
             SDL_SetRenderDrawColor(render, c3.r, c3.g, c3.b, c3.a);
             SDL_RenderFillRect(render, &r3);
 
-            if (!SDL_HasIntersection(&r0, &r3))
-                SDL_GetMouseState(&mx, 0);
-            else {
-                mx = width - r0.w / 2 - r3.w;
-                blue = 1;
-            }
-
             SDL_RenderPresent(render);
 
-            before = SDL_GetTicks();
-            isEvent = SDL_WaitEventTimeout(&event, wait);
-
-            if (isEvent) {
+            if (AUX_WaitEventTimeoutCount(&event, &wait)) {
                 switch (event.type) {
+                    case SDL_MOUSEMOTION:
+                        if (!SDL_HasIntersection(&r0, &r3))
+                            SDL_GetMouseState(&r3.x, 0);
+                        else {
+                            r3.x = width - r0.w / 2 - r3.w;
+                            blue = 1;
+                        }
+
+                        break;
+
                     case SDL_KEYDOWN:
                         switch (event.key.keysym.sym) {
                             case SDLK_LEFT:
@@ -88,11 +102,6 @@ int main(int argc, char* args[]) {
                         SDL_Quit();
                         return (0);
                 }
-
-                wait -= SDL_GetTicks() - before;
-                if (wait < 0)
-                    wait = 0;
-
             } else {
                 if (!SDL_HasIntersection(&r0, &r1))
                     r1.x += size / 20;
@@ -100,9 +109,8 @@ int main(int argc, char* args[]) {
                     r1.x = width - r0.w / 2 - r1.w;
                     red = 1;
                 }
-
-                wait = cycle;
             }
+
             if (red && !green && !blue)
                 strcpy(winner, "Red");
             if (!red && green && !blue)
@@ -112,6 +120,6 @@ int main(int argc, char* args[]) {
         }
 
         mx = r1.x = r2.x = mx = red = green = blue = 0;
-        SDL_Log("%s is the winner!", winner);
+        SDL_Log("%s won!", winner);
     }
 }
