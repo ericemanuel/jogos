@@ -8,26 +8,25 @@
 #define size 150
 #define cycle 100
 
-int wait, before, newCycle = 1;
-
-int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32 ms) {
-    if (newCycle) {
-        wait = cycle;
-        before = ms;
-        newCycle = 0;
-    } else {
-        wait -= SDL_GetTicks() - before;
-        if (wait <= 0) {
-            wait = 0;
-        }
+int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* ms) {
+    Uint32 before = SDL_GetTicks();
+    int isEvent = SDL_WaitEventTimeout(event, *ms);
+    if (isEvent) {
+        Uint32 now = SDL_GetTicks();
+        *ms -= (now - before);
+        if (*ms > cycle)
+            *ms = 0;
+        else
+            *ms = cycle;
     }
-    return SDL_WaitEventTimeout(event, wait);
+    return isEvent;
 }
-
 int main(int argc, char* args[]) {
     // inicialização
     SDL_Init(SDL_INIT_EVERYTHING);
-    SDL_Window* window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED,
+                                          SDL_WINDOWPOS_UNDEFINED, width,
+                                          height, SDL_WINDOW_SHOWN);
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
@@ -61,8 +60,8 @@ int main(int argc, char* args[]) {
 
         SDL_RenderPresent(render);
 
-        isEvent = AUX_WaitEventTimeoutCount(&event, SDL_GetTicks());
-        if (isEvent) {
+        int wait = cycle;
+        if (AUX_WaitEventTimeoutCount(&event, &wait)) {
             switch (event.type) {
                 case SDL_KEYDOWN:
                     switch (event.key.keysym.sym) {
@@ -103,8 +102,6 @@ int main(int argc, char* args[]) {
 
             r1.x += size / 20 * invertX;
             r1.y += size / 20 * invertY;
-
-            newCycle = 1;
         }
     }
 }

@@ -14,7 +14,7 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
-    int mx, my, contador = -1;
+    int mx, my, counter = 0;
 
     SDL_Rect m[10];
     SDL_Color c[10];
@@ -72,12 +72,12 @@ int main(int argc, char* args[]) {
             case SDL_MOUSEBUTTONDOWN:
                 SDL_GetMouseState(&mx, &my);
 
-                contador++;
-                if (contador > 10)
-                    contador = 0;
+                counter++;
+                if (counter > 10)
+                    counter = 0;
 
-                m[contador].x = mx;
-                m[contador].y = my;
+                m[counter].x = mx;
+                m[counter].y = my;
 
                 break;
 
@@ -88,4 +88,8 @@ int main(int argc, char* args[]) {
                 SDL_Quit();
         }
     }
+
+    SDL_DestroyRenderer(render);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 }
