@@ -6,7 +6,7 @@
 #define width 720
 #define height 480
 #define size 150
-#define cycle 10
+#define cycle 50
 
 int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* wait) {
     Uint32 before = SDL_GetTicks();
@@ -31,9 +31,8 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
-    int wait, isEvent, invertX, invertY;
+    int wait, invertX, invertY;
     wait = cycle;
-    isEvent = 0;
     invertX = invertY = 1;
 
     SDL_Color c1 = {255, 0, 0, 0};
