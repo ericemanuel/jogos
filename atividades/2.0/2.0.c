@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define title "2"
+#define title "2.0"
 #define width 720
 #define height 480
 #define size 150
-#define cycle 50
+#define cycle 1000
 
 int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* wait) {
     Uint32 before = SDL_GetTicks();
@@ -31,9 +31,8 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, -1, 0);
 
     // execução
-    int wait, invertX, invertY;
-    wait = cycle;
-    invertX = invertY = 1;
+    Uint32 wait = cycle;
+    int click, drag, mx, my;
 
     SDL_Color c = {0, 0, 255, 0};
     SDL_Rect r = {0, 0, size, size};
@@ -51,8 +50,44 @@ int main(int argc, char* args[]) {
 
         if (AUX_WaitEventTimeoutCount(&event, &wait)) {
             switch (event.type) {
-                case SDL_MOUSEMOTION:  // add SDL_MOUSEBUTTONDOWN here!
-                    SDL_GetMouseState(&r.x, &r.y);
+                case SDL_MOUSEBUTTONDOWN:
+                    click = 1;
+                    mx = r.x;
+                    my = r.y;
+
+                    break;
+
+                case SDL_MOUSEBUTTONUP:
+                    if (click) {
+                        click = 0;
+                        if (!drag)
+                            SDL_Log("Clicked!");
+                        else {
+                            SDL_Log("Dropped!");
+                            drag = 0;
+                        }
+                    }
+
+                    break;
+
+                case SDL_MOUSEMOTION:
+                    if (click) {
+                        SDL_Log("Dragging...");
+                        drag = 1;
+                        SDL_GetMouseState(&r.x, &r.y);
+                    }
+                    break;
+
+                case SDL_KEYDOWN:
+                    if (event.key.keysym.sym == SDLK_SPACE) {
+                        if (drag) {
+                            SDL_Log("Cancelled!");
+                            r.x = mx;
+                            r.y = my;
+                            click = 0;
+                            drag = 0;
+                        }
+                    }
                     break;
 
                 case SDL_QUIT:
