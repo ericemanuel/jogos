@@ -83,9 +83,11 @@ int main(int argc, char* args[]) {
                     case SDL_KEYDOWN:
                         switch (event.key.keysym.sym) {
                             case SDLK_LEFT:
-                                if (!SDL_HasIntersection(&r0, &r2) && (r2.x > 0))
+                                if (!SDL_HasIntersection(&r0, &r2) &&
+                                    (r2.x > 0))
                                     r2.x -= size / 20;
                                 break;
+
                             case SDLK_RIGHT:
                                 if (!SDL_HasIntersection(&r0, &r2))
                                     r2.x += size / 20;
