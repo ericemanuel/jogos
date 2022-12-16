@@ -1,24 +1,27 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
-#include <windows.h>
 
 #define title "1.6"
 #define width 720
 #define height 480
-#define size 150
-#define cycle 10
+#define size 100
+#define cycle 1000 / 60
 
 // time counter
-int AUX_WaitEventTimeoutCount(SDL_Event* event, Uint32* wait) {
-    Uint32 before = SDL_GetTicks();
+int AUX_WaitEventTimeoutCount(SDL_Event* event, int* wait) {
+    int debt = 0;
+    int before = SDL_GetTicks();
     int isEvent = SDL_WaitEventTimeout(event, *wait);
     if (isEvent) {
-        *wait -= (SDL_GetTicks() - before);
+        *wait -= SDL_GetTicks() - before;
 
-        if (*wait >= cycle)
-            *wait = cycle;
+        if (*wait < 0) {
+            debt = *wait;
+            *wait = 0;
+        }
     } else
-        *wait = cycle;
+        *wait = cycle + debt;
+    SDL_Log("%d", debt);
 
     return isEvent;
 }
@@ -32,10 +35,9 @@ int main(int argc, char* args[]) {
     SDL_Renderer* render = SDL_CreateRenderer(window, 1, 0);
 
     // declarations
-    Uint32 wait = cycle;
-
-    int red, green, blue, winner, animation, i;
-    red = green = blue = winner = animation = i = 0;
+    int wait, red, green, blue, winner, animation;
+    wait = cycle;
+    red = green = blue = winner = animation = 0;
 
     SDL_Color c0 = {255, 255, 255, 0};
     SDL_Color c1 = {255, 0, 0, 0};
@@ -103,7 +105,6 @@ int main(int argc, char* args[]) {
                             r3.x = width - r0.w / 2 - r3.w;
                             blue = 1;
                         }
-
                         break;
 
                     case SDL_KEYDOWN:
@@ -166,7 +167,7 @@ int main(int argc, char* args[]) {
 
                 // restart events
                 if (f3.x >= width) {
-                    red = green = blue = winner = animation = i = 0;
+                    red = green = blue = winner = animation = 0;
                     f1.x = -width * 2;
                     f2.x = -width * 2 - width / 2;
                     f3.x = -width * 3;
