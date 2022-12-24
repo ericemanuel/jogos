@@ -2,17 +2,18 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define title "Kobra"
+#define title "Kobras"
 
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
+#define windowWidth 640
+#define windowHeight 480
 
-#define GRID_SIZE 20
-#define GRID_WIDTH (WINDOW_WIDTH / GRID_SIZE)
-#define GRID_HEIGHT (WINDOW_HEIGHT / GRID_SIZE)
+#define gridSize 20
+#define gridWidth (windowWidth / gridSize)
+#define gridHeight (windowHeight / gridSize)
 
-#define FPS 30
-#define FRAME_TARGET_TIME (1000 / FPS)
+#define fps 15
+#define time (1000 / fps)
+#define cycle 100
 
 typedef struct {
     int x;
@@ -20,7 +21,7 @@ typedef struct {
 } SnakeSegment;
 
 typedef struct {
-    SnakeSegment body[100];
+    SnakeSegment body[1000];  // tamanho máximo da cobra
     int size;
     int direction;
 } Snake;
@@ -36,20 +37,22 @@ SDL_Renderer* renderer = NULL;
 Snake snake;
 Food food;
 
-bool game_over = false;
+bool gameOver = false;
+bool canUpdate = true;
 
+// inicializações
 void init() {
-    // Inicializa a SDL
+    // inicializa a SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("Error: %s\n", SDL_GetError());
         exit(1);
     }
 
-    // Cria a janela
+    // cria a janela
     window = SDL_CreateWindow(
         title,
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        WINDOW_WIDTH, WINDOW_HEIGHT,
+        windowWidth, windowHeight,
         SDL_WINDOW_SHOWN);
 
     if (window == NULL) {
@@ -57,7 +60,7 @@ void init() {
         exit(1);
     }
 
-    // Cria o renderer
+    // cria o renderer
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
         printf("Error: %s\n", SDL_GetError());
@@ -65,95 +68,120 @@ void init() {
     }
 }
 
-void process_input() {
+int timeout(SDL_Event* event, int* wait) {
+    int before = SDL_GetTicks();
+    int isEvent = SDL_WaitEventTimeout(event, *wait);
+    if (isEvent) {
+        *wait -= (SDL_GetTicks() - before);
+
+        if (*wait < 0)
+            *wait = 0;
+    } else
+        *wait = cycle;
+
+    return isEvent;
+}
+
+void inputs() {
     SDL_Event event;
-    while (SDL_PollEvent(&event)) {
+    int wait = cycle;
+
+    if (timeout(&event, &wait)) {
         switch (event.type) {
             case SDL_QUIT:
-                game_over = true;
+                gameOver = true;
                 break;
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym) {
                     case SDLK_UP:
-                        snake.direction = 0;
+                        if (snake.direction != 2)
+                            snake.direction = 0;
                         break;
                     case SDLK_RIGHT:
-                        snake.direction = 1;
+                        if (snake.direction != 3)
+                            snake.direction = 1;
                         break;
                     case SDLK_DOWN:
-                        snake.direction = 2;
+                        if (snake.direction != 0)
+                            snake.direction = 2;
                         break;
                     case SDLK_LEFT:
-                        snake.direction = 3;
+                        if (snake.direction != 1)
+                            snake.direction = 3;
                         break;
                 }
                 break;
         }
-    }
+    } else
+        canUpdate = true;
 }
 
 void update() {
-    // Atualiza a posição da cobra
-    for (int i = snake.size - 1; i > 0; i--) {
-        snake.body[i] = snake.body[i - 1];
-    }
+    if (canUpdate) {
+        canUpdate = 0;
 
-    // Muda a direção da cobra de acordo com a direção atual
-    if (snake.direction == 0) {
-        snake.body[0].y--;
-    } else if (snake.direction == 1) {
-        snake.body[0].x++;
-    } else if (snake.direction == 2) {
-        snake.body[0].y++;
-    } else if (snake.direction == 3) {
-        snake.body[0].x--;
-    }
-
-    // Verifica se a cobra colidiu com a parede
-    if (snake.body[0].x < 0 || snake.body[0].x >= GRID_WIDTH ||
-        snake.body[0].y < 0 || snake.body[0].y >= GRID_HEIGHT) {
-        game_over = true;
-    }
-
-    // Verifica se a cobra colidiu com a própria cauda
-    for (int i = 1; i < snake.size; i++) {
-        if (snake.body[0].x == snake.body[i].x && snake.body[0].y == snake.body[i].y) {
-            game_over = true;
+        // atualiza a posição da cobra
+        for (int i = snake.size - 1; i > 0; i--) {
+            snake.body[i] = snake.body[i - 1];
         }
-    }
 
-    // Verifica se a cobra comeu a comida
-    if (snake.body[0].x == food.x && snake.body[0].y == food.y) {
-        // Aumenta o tamanho da cobra
-        snake.size++;
+        // muda a direção da cobra de acordo com a direção atual
+        if (snake.direction == 0) {
+            snake.body[0].y--;
+        } else if (snake.direction == 1) {
+            snake.body[0].x++;
+        } else if (snake.direction == 2) {
+            snake.body[0].y++;
+        } else if (snake.direction == 3) {
+            snake.body[0].x--;
+        }
 
-        // Gera uma nova comida em uma posição aleatória
-        food.x = rand() % GRID_WIDTH;
-        food.y = rand() % GRID_HEIGHT;
+        // Verifica se a cobra colidiu com a parede
+        if (snake.body[0].x < 0 || snake.body[0].x >= gridWidth ||
+            snake.body[0].y < 0 || snake.body[0].y >= gridHeight) {
+            gameOver = true;
+        }
+
+        // Verifica se a cobra colidiu com a própria cauda
+        for (int i = 1; i < snake.size; i++) {
+            if (snake.body[0].x == snake.body[i].x && snake.body[0].y == snake.body[i].y) {
+                gameOver = true;
+            }
+        }
+
+        // Verifica se a cobra comeu a comida
+        if (snake.body[0].x == food.x && snake.body[0].y == food.y) {
+            // Aumenta o tamanho da cobra
+            snake.size++;
+
+            // Gera uma nova comida em uma posição aleatória
+            food.x = rand() % gridWidth;
+            food.y = rand() % gridHeight;
+        }
     }
 }
 
 void render() {
-    // Limpa a tela
+    // limpa a tela
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Desenha a cobra
+    // desenha a cobra
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for (int i = 0; i < snake.size; i++) {
         SDL_Rect rect = {
-            snake.body[i].x * GRID_SIZE,
-            snake.body[i].y * GRID_SIZE,
-            GRID_SIZE, GRID_SIZE};
+            snake.body[i].x * gridSize,
+            snake.body[i].y * gridSize,
+            gridSize, gridSize};
         SDL_RenderFillRect(renderer, &rect);
     }
 
     // Desenha a comida
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_Rect food_rect = {
-        food.x * GRID_SIZE,
-        food.y * GRID_SIZE,
-        GRID_SIZE, GRID_SIZE};
+        food.x * gridSize,
+        food.y * gridSize,
+        gridSize, gridSize};
     SDL_RenderFillRect(renderer, &food_rect);
 
     // Atualiza a tela
@@ -161,7 +189,7 @@ void render() {
 }
 
 void close() {
-    // Libera os recursos alocados pela SDL
+    // libera os recursos alocados pela SDL
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -170,33 +198,26 @@ void close() {
 int main(int argc, char* argv[]) {
     init();
 
-    // Inicializa a cobra
-    snake.body[0].x = GRID_WIDTH / 2;
-    snake.body[0].y = GRID_HEIGHT / 2;
+    // inicializa a cobra
+    snake.body[0].x = gridWidth / 2;
+    snake.body[0].y = gridHeight / 2;
     snake.size = 1;
     snake.direction = 1;
 
-    // Gera uma comida em uma posição aleatória
-    food.x = rand() % GRID_WIDTH;
-    food.y = rand() % GRID_HEIGHT;
+    // gera a comida em uma posição aleatória
+    food.x = rand() % gridWidth;
+    food.y = rand() % gridHeight;
 
-    // Loop do jogo
-    while (!game_over) {
-        // Lê os inputs do jogador
-        process_input();
-
-        // Atualiza o estado do jogo
+    // loop principal
+    while (!gameOver) {
+        inputs();
         update();
-
-        // Renderiza o jogo
         render();
 
-        // Espera para manter a taxa de quadros por segundo
-        SDL_Delay(FRAME_TARGET_TIME);
+        // espera para manter a taxa de quadros por segundo
+        // SDL_Delay(time);
     }
 
-    // Finaliza o jogo
     close();
-
     return 0;
 }
