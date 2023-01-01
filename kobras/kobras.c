@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -11,8 +12,6 @@
 #define gridWidth (windowWidth / gridSize)
 #define gridHeight (windowHeight / gridSize)
 
-#define cycle 50
-
 typedef struct {
     int x;
     int y;
@@ -22,6 +21,7 @@ typedef struct {
     SnakeSegment body[1000];  // tamanho máximo da cobra
     int size;
     int direction;
+    SDL_Color color;
 } Snake;
 
 typedef struct {
@@ -32,10 +32,12 @@ typedef struct {
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
-Snake snake;
+Snake snake[2];
 Food food;
 
+int cycle = 100;
 bool gameOver = false;
+int loser;
 
 // inicializações
 void init() {
@@ -66,25 +68,43 @@ int timeout(SDL_Event* event, int* wait) {
 
 void inputs(SDL_Event* event) {
     SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
-
     switch (event->type) {
         case SDL_KEYDOWN:
             switch (event->key.keysym.sym) {
+                // inputs da cobra 0
+                case SDLK_w:
+                    if (snake[0].direction != 2)
+                        snake[0].direction = 0;
+                    break;
+                case SDLK_d:
+                    if (snake[0].direction != 3)
+                        snake[0].direction = 1;
+                    break;
+                case SDLK_s:
+                    if (snake[0].direction != 0)
+                        snake[0].direction = 2;
+                    break;
+                case SDLK_a:
+                    if (snake[0].direction != 1)
+                        snake[0].direction = 3;
+                    break;
+
+                // inputs da cobra 1
                 case SDLK_UP:
-                    if (snake.direction != 2)
-                        snake.direction = 0;
+                    if (snake[1].direction != 2)
+                        snake[1].direction = 0;
                     break;
                 case SDLK_RIGHT:
-                    if (snake.direction != 3)
-                        snake.direction = 1;
+                    if (snake[1].direction != 3)
+                        snake[1].direction = 1;
                     break;
                 case SDLK_DOWN:
-                    if (snake.direction != 0)
-                        snake.direction = 2;
+                    if (snake[1].direction != 0)
+                        snake[1].direction = 2;
                     break;
                 case SDLK_LEFT:
-                    if (snake.direction != 1)
-                        snake.direction = 3;
+                    if (snake[1].direction != 1)
+                        snake[1].direction = 3;
                     break;
             }
             break;
@@ -95,39 +115,88 @@ void inputs(SDL_Event* event) {
     }
 }
 
-void update() {
-    // atualiza a posição da cobra
-    for (int i = snake.size - 1; i > 0; i--)
-        snake.body[i] = snake.body[i - 1];
+void updatePosition() {
+    for (int s = 0; s < 2; s++) {
+        // atualiza a posição das cobras
+        for (int i = snake[s].size - 1; i > 0; i--)
+            snake[s].body[i] = snake[s].body[i - 1];
 
-    if (snake.direction == 0)
-        snake.body[0].y--;
-    else if (snake.direction == 1)
-        snake.body[0].x++;
-    else if (snake.direction == 2)
-        snake.body[0].y++;
-    else if (snake.direction == 3)
-        snake.body[0].x--;
-
-    // colisoes
-    if (snake.body[0].x < 0 || snake.body[0].x >= gridWidth ||
-        snake.body[0].y < 0 || snake.body[0].y >= gridHeight)
-        gameOver = true;
-
-    for (int i = 1; i < snake.size; i++)
-        if (snake.body[0].x == snake.body[i].x &&
-            snake.body[0].y == snake.body[i].y)
-            gameOver = true;
-
-    // verifica se a cobra comeu a comida
-    if (snake.body[0].x == food.x && snake.body[0].y == food.y) {
-        // aumenta o tamanho da cobra
-        snake.size++;
-
-        // gera uma nova comida em uma posição aleatória
-        food.x = rand() % gridWidth;
-        food.y = rand() % gridHeight;
+        if (snake[s].direction == 0)
+            snake[s].body[0].y--;
+        else if (snake[s].direction == 1)
+            snake[s].body[0].x++;
+        else if (snake[s].direction == 2)
+            snake[s].body[0].y++;
+        else if (snake[s].direction == 3)
+            snake[s].body[0].x--;
     }
+}
+
+void checkCollisions() {
+    for (int s = 0; s < 2; s++) {
+        // verifica colisão com as paredes
+        if (snake[s].body[0].x < 0 || snake[s].body[0].x >= gridWidth || snake[s].body[0].y < 0 || snake[s].body[0].y >= gridHeight) {
+            gameOver = true;
+            loser = s;
+            SDL_Log("%d perdeu...", loser);
+        }
+
+        // verifica colisão com si mesmas
+        for (int i = 1; i < snake[s].size; i++)
+            if (snake[s].body[0].x == snake[s].body[i].x && snake[s].body[0].y == snake[s].body[i].y) {
+                gameOver = true;
+                loser = s;
+                SDL_Log("%d perdeu...", loser);
+            }
+    }
+
+    // verifica colisão entre as cobras
+    for (int i = 1; i < snake[0].size; i++) {
+        if (snake[0].body[0].x == snake[1].body[i].x && snake[0].body[0].y == snake[1].body[i].y) {
+            gameOver = true;
+            loser = 0;
+            SDL_Log("%d perdeu...", loser);
+        }
+
+        if (snake[1].body[0].x == snake[0].body[i].x && snake[1].body[0].y == snake[0].body[i].y) {
+            gameOver = true;
+            loser = 1;
+            SDL_Log("%d perdeu...", loser);
+        }
+    }
+}
+
+void updateFood() {
+    for (int s = 0; s < 2; s++)
+        // verifica se alguma cobra comeu a comida
+        if (snake[s].body[0].x == food.x && snake[s].body[0].y == food.y) {
+            // aumenta o tamanho da cobra correspondente
+            snake[s].size++;
+            snake[s].body[snake[s].size - 1].x = snake[s].body[snake[s].size - 2].x;
+            snake[s].body[snake[s].size - 1].y = snake[s].body[snake[s].size - 2].y;
+
+            // aumenta ligeiramente a velocidade do jogo
+            cycle--;
+
+            // gera uma nova comida em uma posição aleatória
+            food.x = rand() % gridWidth;
+            food.y = rand() % gridHeight;
+
+            // garante que a comida não foi gerada sobre o corpo de uma das cobras
+            for (int s = 0; s < 2; s++) {
+                bool onBody = true;
+                while (onBody) {
+                    onBody = false;
+                    for (int i = 1; i < snake[s].size; i++)
+                        if (food.x == snake[s].body[i].x && food.y == snake[s].body[i].y) {
+                            food.x = rand() % gridWidth;
+                            food.y = rand() % gridHeight;
+                            onBody = true;
+                            break;
+                        }
+                }
+            }
+        }
 }
 
 void render() {
@@ -135,18 +204,18 @@ void render() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // desenha a cobra
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    for (int i = 0; i < snake.size; i++) {
-        SDL_Rect rect = {snake.body[i].x * gridSize, snake.body[i].y * gridSize,
-                         gridSize, gridSize};
-        SDL_RenderFillRect(renderer, &rect);
+    // desenha as cobras
+    for (int s = 0; s < 2; s++) {
+        SDL_SetRenderDrawColor(renderer, snake[s].color.r, snake[s].color.g, snake[s].color.b, snake[s].color.a);
+        for (int i = 0; i < snake[s].size; i++) {
+            SDL_Rect rect = {snake[s].body[i].x * gridSize, snake[s].body[i].y * gridSize, gridSize, gridSize};
+            SDL_RenderFillRect(renderer, &rect);
+        }
     }
 
     // desenha a comida
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    SDL_Rect food_rect = {food.x * gridSize, food.y * gridSize, gridSize,
-                          gridSize};
+    SDL_Rect food_rect = {food.x * gridSize, food.y * gridSize, gridSize, gridSize};
     SDL_RenderFillRect(renderer, &food_rect);
 
     // atualiza a tela
@@ -163,25 +232,36 @@ void quit() {
 int main(int argc, char* argv[]) {
     init();
 
-    // inicializa a cobra
-    snake.body[0].x = gridWidth / 2;
-    snake.body[0].y = gridHeight / 2;
-    snake.size = 1;
-    snake.direction = 1;
-
-    // gera a comida em uma posição aleatória
-    food.x = rand() % gridWidth;
-    food.y = rand() % gridHeight;
-
     SDL_Event event;
     int wait = cycle;
+
+    // inicializa a cobra 1
+    snake[0].body[0].x = gridWidth / 4;
+    snake[0].body[0].y = gridHeight / 2;
+    snake[0].size = 3;
+    snake[0].direction = 1;
+    snake[0].color = (SDL_Color){0, 255, 0, 0};
+
+    // inicializa a cobra 2
+    snake[1].body[0].x = 2 * gridWidth / 3;
+    snake[1].body[0].y = gridHeight / 2;
+    snake[1].size = 3;
+    snake[1].direction = 1;
+    snake[1].color = (SDL_Color){0, 0, 255, 0};
+
+    // gera a comida inicial
+    food.x = gridWidth / 2;
+    food.y = gridHeight / 2;
 
     // loop principal
     while (!gameOver) {
         if (timeout(&event, &wait)) {
             inputs(&event);
-        } else
-            update();
+        } else {
+            updatePosition();
+            checkCollisions();
+            updateFood();
+        }
 
         render();
     }
