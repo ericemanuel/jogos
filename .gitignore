@@ -4,5 +4,6 @@ atividades/*/*
 !*/*/*.gif
 
 kobras/*
+!kobras/resources
 !*/*.c
 !*/*.png

@@ -81,7 +81,7 @@ void start() {
     srand(time(0));
 
     // define a cobra 0
-    snake[0].size = 30;
+    snake[0].size = 5;
     for (int i = 0; i < snake[0].size; i++) {
         snake[0].body[i].x = 3;
         snake[0].body[i].y = gridHeight / 2;
@@ -92,7 +92,7 @@ void start() {
     snake[0].color = (SDL_Color){0, 255, 0, 255};
 
     // define a cobra 1
-    snake[1].size = 30;
+    snake[1].size = 5;
     for (int i = 0; i < snake[1].size; i++) {
         snake[1].body[i].x = gridWidth - 4;
         snake[1].body[i].y = gridHeight / 2;
@@ -304,8 +304,7 @@ void collide() {
             for (int i = 1; i < snake[s].size; i++)
                 for (int j = 0; j < wall.size; j++) {
                     if (snake[s].body[i].x == wall.body[j].x && snake[s].body[i].y == wall.body[j].y) {
-                        snake[s].size -= (snake[s].size - i);
-                        SDL_Log("%d", snake[s].size);
+                        snake[s].size--;
                     }
                 }
         }
@@ -390,8 +389,8 @@ void toggle(int* foods, int* moves) {
     // controla o surgimento da parede
     static int movesSnapshot = 0;
     static bool set = true;
-    if (set)
-        if (*foods == 3) {
+    if (set) {
+        if (*foods >= 3) {
             wall.orientation = rand() % 2;
             for (int i = 0; i <= wall.size; i++) {
                 if (wall.orientation == 0) {
@@ -404,19 +403,25 @@ void toggle(int* foods, int* moves) {
             }
             wall.color.a = 30;
             wall.toggle = 1;
-
             movesSnapshot = *moves;
+
             set = false;
         }
-
-    if (set == false)
-        if (*moves - movesSnapshot == 20) {
+    } else {
+        if (*moves - movesSnapshot == 30) {
             wall.color.a = 255;
             wall.toggle = 2;
-
-            set = true;
             *foods = 0;
         }
+
+        if (wall.toggle == 2)
+            if (*foods == 3) {
+                wall.toggle = 0;
+                *foods = 0;
+
+                set = true;
+            }
+    }
 }
 
 void quit() {
