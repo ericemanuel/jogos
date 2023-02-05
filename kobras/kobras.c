@@ -1,20 +1,22 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
 
 #define title "Kobras"
 
-#define windowWidth 700
-#define windowHeight 700
-#define gridSize 20
+#define windowWidth 800
+#define windowHeight 800
+#define gridSize 40
+#define spriteSize 64
 
 #define gridWidth (windowWidth / gridSize)
 #define gridHeight (windowHeight / gridSize)
 #define gridColumns (gridWidth * gridSize)
 #define gridRows (gridHeight * gridSize)
+
+#define initialCycle 150
 
 typedef struct {
     int x;
@@ -44,7 +46,6 @@ typedef struct {
     int size;
     int toggle;
     int orientation;
-    SDL_Color color;
 } Wall;
 
 SDL_Window* window = NULL;
@@ -55,15 +56,15 @@ Food food;
 Winner winner;
 Wall wall;
 
-SDL_Rect r1 = {-windowWidth * 2, 0, windowWidth * 2, windowHeight / 3};
-SDL_Rect r2 = {-windowWidth * 2.5, windowHeight / 3, windowWidth * 2,
-               windowHeight / 3};
-SDL_Rect r3 = {-windowWidth * 3, windowHeight * 2 / 3, windowWidth * 2,
-               windowHeight / 3};
+SDL_Rect r1 = {-windowWidth * 2, 0, windowWidth * 2, windowHeight / 3 + 1};
+SDL_Rect r2 = {-windowWidth * 2.5, windowHeight / 3, windowWidth * 2, windowHeight / 3 + 1};
+SDL_Rect r3 = {-windowWidth * 3, windowHeight * 2 / 3, windowWidth * 2, windowHeight / 3 + 1};
 
-SDL_Texture* sprite;
+SDL_Texture* snakesSprite;
+SDL_Texture* foodSprite;
+SDL_Texture* wallSprite;
 
-int cycle = 100;
+int cycle = initialCycle;
 bool gameOver = false;
 bool close = false;
 int queue = 1;
@@ -80,102 +81,197 @@ void init() {
     renderer = SDL_CreateRenderer(window, -1, 0);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    SDL_Texture* sprite = IMG_LoadTexture(renderer, "sprite.png");
-    assert(sprite != NULL);
+    snakesSprite = IMG_LoadTexture(renderer, "kobras/resources/sprites/snakes.png");
+    foodSprite = IMG_LoadTexture(renderer, "kobras/resources/sprites/food.png");
+    wallSprite = IMG_LoadTexture(renderer, "kobras/resources/sprites/wall.png");
 }
 
-void start() {
+void start(int* foods, int* moves) {
     // prepara eventos aleatorios
     srand(time(0));
 
     // define a cobra 0
-    snake[0].size = 5;
+    snake[0].size = 3;
     for (int i = 0; i < snake[0].size; i++) {
-        snake[0].body[i].x = 3;
+        snake[0].body[i].x = -1;
         snake[0].body[i].y = gridHeight / 2;
     }
     snake[0].direction[0] = 1;
     snake[0].direction[1] = 1;
     snake[0].direction[2] = -1;
-    snake[0].color = (SDL_Color){0, 255, 0, 255};
+    snake[0].color = (SDL_Color){100, 160, 100, 255};
 
     // define a cobra 1
-    snake[1].size = 5;
+    snake[1].size = 3;
     for (int i = 0; i < snake[1].size; i++) {
-        snake[1].body[i].x = gridWidth - 4;
+        snake[1].body[i].x = gridWidth + 1;
         snake[1].body[i].y = gridHeight / 2;
     }
     snake[1].direction[0] = 3;
     snake[1].direction[1] = 3;
     snake[1].direction[2] = -1;
-    snake[1].color = (SDL_Color){0, 0, 255, 255};
+    snake[1].color = (SDL_Color){70, 130, 190, 255};
 
     // define a comida
     food.x = gridWidth / 2;
     food.y = gridHeight / 2;
-    food.color = (SDL_Color){255, 0, 0, 255};
+    food.color = (SDL_Color){220, 70, 70, 255};
 
     // define a parede
     wall.toggle = 0;
-    wall.size = 25;
-    wall.color = (SDL_Color){255, 255, 255, 0};
+    wall.size = gridWidth - 6;
+
+    // define contadores
+    *foods = 0;
+    *moves = 0;
 }
 
 void render() {
     // limpa a tela
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer, 250, 230, 150, 255);
     SDL_RenderClear(renderer);
 
     // desenha as cobras
+    int x, y;
     for (int s = 0; s < 2; s++) {
-        SDL_SetRenderDrawColor(renderer, snake[s].color.r, snake[s].color.g,
-                               snake[s].color.b, snake[s].color.a);
         for (int i = 0; i < snake[s].size; i++) {
-            SDL_Rect snakeRect = {snake[s].body[i].x * gridSize,
-                                  snake[s].body[i].y * gridSize, gridSize,
-                                  gridSize};
-            SDL_RenderFillRect(renderer, &snakeRect);
-        }
-    }
+            if (i == 0) {  // cabeça
+                if (snake[s].direction[0] == 0) {
+                    x = 3;
+                    y = 0;
+                } else if (snake[s].direction[0] == 1) {
+                    x = 4;
+                    y = 0;
+                } else if (snake[s].direction[0] == 2) {
+                    x = 4;
+                    y = 1;
+                } else if (snake[s].direction[0] == 3) {
+                    x = 3;
+                    y = 1;
+                }
 
-    // redesenha a cobra 0 caso ela perca, para deixar claro ao jogador
-    if (winner.number != 0) {
-        SDL_SetRenderDrawColor(renderer, snake[0].color.r, snake[0].color.g,
-                               snake[0].color.b, snake[0].color.a);
-        for (int i = 0; i < snake[0].size; i++) {
-            SDL_Rect snakeRect = {snake[0].body[i].x * gridSize,
-                                  snake[0].body[i].y * gridSize, gridSize,
-                                  gridSize};
-            SDL_RenderFillRect(renderer, &snakeRect);
+            } else if (i == snake[s].size - 1) {  // cauda
+                if (snake[s].body[i].y > snake[s].body[i - 1].y) {
+                    x = 3;
+                    y = 2;
+                } else if (snake[s].body[i].x < snake[s].body[i - 1].x) {
+                    x = 4;
+                    y = 2;
+                } else if (snake[s].body[i].y < snake[s].body[i - 1].y) {
+                    x = 4;
+                    y = 3;
+                } else if (snake[s].body[i].x > snake[s].body[i - 1].x) {
+                    x = 3;
+                    y = 3;
+                }
+
+            } else {  // corpo
+                x = 1;
+                y = 1;
+
+                // sem curvas
+                if (snake[s].body[i].y == snake[s].body[i - 1].y) {
+                    x = 1;
+                    y = 0;
+                } else if (snake[s].body[i].x == snake[s].body[i - 1].x) {
+                    x = 2;
+                    y = 1;
+                }
+
+                // subindo
+                if (snake[s].body[i].y < snake[s].body[i + 1].y) {
+                    if (snake[s].body[i].x < snake[s].body[i - 1].x) {  // virou à direita
+                        x = 0;
+                        y = 0;
+                    } else if (snake[s].body[i].x > snake[s].body[i - 1].x) {  // virou à esquerda
+                        x = 2;
+                        y = 0;
+                    }
+                }
+
+                // direita
+                else if (snake[s].body[i].x > snake[s].body[i + 1].x) {
+                    if (snake[s].body[i].y < snake[s].body[i - 1].y) {  // virou para baixo
+                        x = 2;
+                        y = 0;
+                    } else if (snake[s].body[i].y > snake[s].body[i - 1].y) {  // virou para cima
+                        x = 2;
+                        y = 2;
+                    }
+                }
+
+                // descendo
+                else if (snake[s].body[i].y > snake[s].body[i + 1].y) {
+                    if (snake[s].body[i].x < snake[s].body[i - 1].x) {  // virou à direita
+                        x = 0;
+                        y = 1;
+                    } else if (snake[s].body[i].x > snake[s].body[i - 1].x) {  // virou à esquerda
+                        x = 2;
+                        y = 2;
+                    }
+                }
+
+                // esquerda
+                else if (snake[s].body[i].x < snake[s].body[i + 1].x) {
+                    if (snake[s].body[i].y < snake[s].body[i - 1].y) {  // virou para baixo
+                        x = 0;
+                        y = 0;
+                    } else if (snake[s].body[i].y > snake[s].body[i - 1].y) {  // virou para cima
+                        x = 0;
+                        y = 1;
+                    }
+                }
+            }
+
+            if (s == 1)
+                x += 5;
+
+            SDL_Rect spriteMask = {x * spriteSize, y * spriteSize, spriteSize, spriteSize};
+            SDL_Rect spritePosition = {snake[s].body[i].x * gridSize, snake[s].body[i].y * gridSize, gridSize, gridSize};
+            SDL_RenderCopy(renderer, snakesSprite, &spriteMask, &spritePosition);
         }
     }
 
     // desenha a comida
-    SDL_SetRenderDrawColor(renderer, food.color.r, food.color.g, food.color.b,
-                           food.color.a);
-    SDL_Rect foodRect = {food.x * gridSize, food.y * gridSize, gridSize,
-                         gridSize};
-    SDL_RenderFillRect(renderer, &foodRect);
-
-    // teste de textura
-    SDL_Rect textureRect = {0, 0, 50, 50};
-    SDL_RenderCopy(renderer, sprite, NULL, &textureRect);
+    SDL_Rect spriteMask = {0, 0, spriteSize, spriteSize};
+    SDL_Rect spritePosition = {food.x * gridSize, food.y * gridSize, gridSize, gridSize};
+    SDL_RenderCopy(renderer, foodSprite, &spriteMask, &spritePosition);
 
     // desenha a parede
-    if (wall.toggle > 0) {
-        SDL_SetRenderDrawColor(renderer, wall.color.r, wall.color.g,
-                               wall.color.b, wall.color.a);
-
+    if (wall.toggle > 0)
         for (int i = 0; i < wall.size; i++) {
-            SDL_Rect wallRect = {wall.body[i].x * gridSize,
-                                 wall.body[i].y * gridSize, gridSize, gridSize};
-            SDL_RenderFillRect(renderer, &wallRect);
+            if (wall.orientation == 0) {
+                x = 0;
+                if (i == 0)
+                    y = 0;
+                else if (i == wall.size - 1) {
+                    y = 2;
+                } else
+                    y = 1;
+            }
+
+            else if (wall.orientation == 1) {
+                y = 1;
+                if (i == 0)
+                    x = 1;
+                else if (i == wall.size - 1)
+                    x = 3;
+                else
+                    x = 2;
+            }
+
+            if (wall.toggle == 1)
+                SDL_SetTextureAlphaMod(wallSprite, 70);
+            else
+                SDL_SetTextureAlphaMod(wallSprite, 255);
+
+            SDL_Rect spriteMask = {x * spriteSize, y * spriteSize, spriteSize, spriteSize};
+            SDL_Rect spritePosition = {wall.body[i].x * gridSize, wall.body[i].y * gridSize, gridSize, gridSize};
+            SDL_RenderCopy(renderer, wallSprite, &spriteMask, &spritePosition);
         }
-    }
 
     // desenha o game over
-    SDL_SetRenderDrawColor(renderer, winner.color.r, winner.color.g,
-                           winner.color.b, winner.color.a);
+    SDL_SetRenderDrawColor(renderer, winner.color.r, winner.color.g, winner.color.b, winner.color.a);
     SDL_RenderFillRect(renderer, &r1);
     SDL_RenderFillRect(renderer, &r2);
     SDL_RenderFillRect(renderer, &r3);
@@ -418,21 +514,24 @@ int eat() {
 
 void toggle(int* foods, int* moves) {
     // controla o surgimento da parede
+    static bool set;
     static int movesSnapshot = 0;
-    static bool set = true;
+
+    if (wall.toggle == 0)
+        set = true;
+
     if (set) {
         if (*foods >= 3) {
             wall.orientation = rand() % 2;
             for (int i = 0; i <= wall.size; i++) {
                 if (wall.orientation == 0) {
                     wall.body[i].x = gridWidth / 2;
-                    wall.body[i].y = i + 5;
+                    wall.body[i].y = i + 3;
                 } else {
-                    wall.body[i].x = i + 5;
+                    wall.body[i].x = i + 3;
                     wall.body[i].y = gridWidth / 2;
                 }
             }
-            wall.color.a = 30;
             wall.toggle = 1;
             movesSnapshot = *moves;
 
@@ -440,7 +539,6 @@ void toggle(int* foods, int* moves) {
         }
     } else {
         if (*moves - movesSnapshot == 30) {
-            wall.color.a = 255;
             wall.toggle = 2;
             *foods = 0;
         }
@@ -457,24 +555,29 @@ void toggle(int* foods, int* moves) {
 
 void quit() {
     // libera os recursos alocados pelo SDL
-    SDL_DestroyTexture(sprite);
+    SDL_DestroyTexture(snakesSprite);
+    SDL_DestroyTexture(foodSprite);
+    SDL_DestroyTexture(wallSprite);
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
 }
 
 int main(int argc, char* argv[]) {
+    int moves;
+    int foods;
+
     init();
-    start();
+    start(&foods, &moves);
 
     SDL_Event event;
     int wait = cycle;
 
     // loop principal
     while (!close) {
-        int moves = 0;
-        int foods = 0;
-        int countdown = 5;
+        moves = 0;
+        foods = 0;
         while (!close && !gameOver) {
             render();
             if (timeout(&event, &wait))
@@ -498,17 +601,17 @@ int main(int argc, char* argv[]) {
             input(&event);
         else {
             if (r3.x < windowWidth) {
-                r1.x += 15;
-                r2.x += 15;
-                r3.x += 15;
+                r1.x += 20;
+                r2.x += 20;
+                r3.x += 20;
 
                 // reinicia posições
                 if (r3.x >= -windowWidth) {
-                    start();
+                    start(&foods, &moves);
                 }
             } else {
                 // reinicia o resto
-                cycle = 100;
+                cycle = initialCycle;
                 r1.x = -windowWidth * 2;
                 r2.x = -windowWidth * 2.5;
                 r3.x = -windowWidth * 3;
